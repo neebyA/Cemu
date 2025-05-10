@@ -15,176 +15,19 @@ env:
   VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
 
 jobs:
-  build-ubuntu:
-    runs-on: ubuntu-22.04
-    steps:
-    - name: "Checkout repo"
-      uses: actions/checkout@v4
-      with:
-        submodules: "recursive"
-        fetch-depth: 0
-
-    - name: Setup release mode parameters
-      run: |
-        echo "BUILD_MODE=release" >> $GITHUB_ENV
-        echo "BUILD_FLAGS=" >> $GITHUB_ENV
-        echo "Build mode is release"
-
-    - name: Setup build flags for version
-      if: ${{ inputs.next_version_major != '' }}
-      run: |
-        echo "[INFO] Version ${{ inputs.next_version_major }}.${{ inputs.next_version_minor }}"
-        echo "BUILD_FLAGS=${{ env.BUILD_FLAGS }} -DEMULATOR_VERSION_MAJOR=${{ inputs.next_version_major }} -DEMULATOR_VERSION_MINOR=${{ inputs.next_version_minor }}" >> $GITHUB_ENV
-
-    - name: "Install system dependencies"
-      run: |
-        sudo apt update -qq
-        sudo apt install -y clang-15 cmake freeglut3-dev libgcrypt20-dev libglm-dev libgtk-3-dev libpulse-dev libsecret-1-dev libsystemd-dev libudev-dev nasm ninja-build libbluetooth-dev
-
-    - name: "Setup cmake"
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.29.0'
-
-    - name: "Bootstrap vcpkg"
-      run: |
-        bash ./dependencies/vcpkg/bootstrap-vcpkg.sh
-
-    - name: 'Setup NuGet Credentials for vcpkg'
-      shell: 'bash'
-      run: |
-        mono `./dependencies/vcpkg/vcpkg fetch nuget | tail -n 1` \
-        sources add \
-        -source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-        -storepasswordincleartext \
-        -name "GitHub" \
-        -username "${{ github.repository_owner }}" \
-        -password "${{ secrets.GITHUB_TOKEN }}"
-        mono `./dependencies/vcpkg/vcpkg fetch nuget | tail -n 1` \
-        setapikey "${{ secrets.GITHUB_TOKEN }}" \
-        -source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-        
-    - name: "cmake"
-      run: |
-        cmake -S . -B build ${{ env.BUILD_FLAGS }} -DCMAKE_BUILD_TYPE=${{ env.BUILD_MODE }} -DCMAKE_C_COMPILER=/usr/bin/clang-15 -DCMAKE_CXX_COMPILER=/usr/bin/clang++-15 -G Ninja -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja
-        
-    - name: "Build Cemu"
-      run: |
-        cmake --build build
-        
-    - name: Prepare artifact
-      run: mv bin/Cemu_release bin/Cemu
-              
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: cemu-bin-linux-x64
-        path: ./bin/Cemu
-
-  build-appimage:
-    runs-on: ubuntu-22.04
-    needs: build-ubuntu
-    steps:
-    - name: Checkout Upstream Repo
-      uses: actions/checkout@v4
-
-    - uses: actions/download-artifact@v4
-      with:
-        name: cemu-bin-linux-x64
-        path: bin
-
-    - name: "Install system dependencies"
-      run: |
-        sudo apt update -qq
-        sudo apt install -y clang-15 cmake freeglut3-dev libgcrypt20-dev libglm-dev libgtk-3-dev libpulse-dev libsecret-1-dev libsystemd-dev nasm ninja-build appstream libbluetooth-dev
-
-    - name: "Build AppImage"
-      run: |
-        export LD_LIBRARY_PATH="/usr/local/lib:$LD_LIBRARY_PATH"
-        export DEPLOY_GTK_VERSION=3
-        dist/linux/appimage.sh
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: cemu-appimage-x64
-        path: artifacts
-
-  build-windows:
-    runs-on: windows-2022
-    steps:
-    - name: "Checkout repo"
-      uses: actions/checkout@v4
-      with:
-        submodules: "recursive"
-
-    - name: Setup release mode parameters
-      run: |
-        echo "BUILD_MODE=release" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
-        echo "BUILD_FLAGS=" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
-        echo "Build mode is release"
-
-    - name: Setup build flags for version
-      if: ${{ inputs.next_version_major != '' }}
-      run: |
-        echo "[INFO] Version ${{ inputs.next_version_major }}.${{ inputs.next_version_minor }}"
-        echo "BUILD_FLAGS=${{ env.BUILD_FLAGS }} -DEMULATOR_VERSION_MAJOR=${{ inputs.next_version_major }} -DEMULATOR_VERSION_MINOR=${{ inputs.next_version_minor }}" | Out-File -FilePath $Env:GITHUB_ENV -Encoding utf8 -Append
-
-    - name: "Setup cmake"
-      uses: jwlawson/actions-setup-cmake@v2
-      with:
-        cmake-version: '3.29.0'
-
-    - name: "Bootstrap vcpkg"
-      run: |
-        ./dependencies/vcpkg/bootstrap-vcpkg.bat
-        
-    - name: 'Setup NuGet Credentials for vcpkg'
-      shell: 'bash'
-      run: |
-        `./dependencies/vcpkg/vcpkg.exe fetch nuget | tail -n 1` \
-        sources add \
-        -source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json" \
-        -storepasswordincleartext \
-        -name "GitHub" \
-        -username "${{ github.repository_owner }}" \
-        -password "${{ secrets.GITHUB_TOKEN }}"
-        `./dependencies/vcpkg/vcpkg.exe fetch nuget | tail -n 1` \
-        setapikey "${{ secrets.GITHUB_TOKEN }}" \
-        -source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
-        
-    - name: "cmake"
-      run: |
-        mkdir -p build
-        cd build
-        echo "[INFO] BUILD_FLAGS: ${{ env.BUILD_FLAGS }}"
-        echo "[INFO] BUILD_MODE: ${{ env.BUILD_MODE }}"
-        cmake .. ${{ env.BUILD_FLAGS }} -DCMAKE_BUILD_TYPE=${{ env.BUILD_MODE }} -DVCPKG_INSTALL_OPTIONS="--clean-after-build"
-        
-    - name: "Build Cemu"
-      run: |
-        cd build
-        cmake --build . --config ${{ env.BUILD_MODE }}
-
-    - name: Prepare artifact
-      run: Rename-Item bin/Cemu_release.exe Cemu.exe
-      
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: cemu-bin-windows-x64
-        path: ./bin/Cemu.exe
-
   build-macos:
     runs-on: macos-14
-    strategy:
-      matrix:
-        arch: [x86_64, arm64]
     steps:
     - name: "Checkout repo"
       uses: actions/checkout@v4
       with:
         submodules: "recursive"
+
+    - name: "Select Xcode 16.2"
+      run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+    - name: "Verify Xcode Version"
+      run: xcodebuild -version
         
     - name: Setup release mode parameters
       run: |
@@ -233,34 +76,98 @@ jobs:
         setapikey "${{ secrets.GITHUB_TOKEN }}" \
         -source "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
         
-    - name: "cmake"
+    - name: "cmake x64"
       run: |
         mkdir build
         cd build
         cmake .. ${{ env.BUILD_FLAGS }} \
         -DCMAKE_BUILD_TYPE=${{ env.BUILD_MODE }} \
-        -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch }} \
+        -DCMAKE_OSX_ARCHITECTURES=x86_64 \
         -DMACOS_BUNDLE=ON \
         -G Ninja
         
-    - name: "Build Cemu"
+    - name: "Build Cemu x64"
       run: |
         cmake --build build
 
-    - name: Prepare artifact
+    - name: "Move x64 artifact"
       run: |
+        mv bin/Cemu_release.app bin/Cemu_Metal_x64.app
+        mv bin/Cemu_Metal_x64.app/Contents/MacOS/Cemu_release bin/Cemu_Metal_x64.app/Contents/MacOS/Cemu_Metal_x64
+        sed -i '' 's/Cemu_release/Cemu_Metal_x64/g' bin/Cemu_Metal_x64.app/Contents/Info.plist
+        chmod a+x bin/Cemu_Metal_x64.app/Contents/MacOS/{Cemu_Metal_x64,update.sh}
+
+    - name: "cmake arm64"
+      run: |
+        rm -rf build
+        mkdir build
+        cd build
+        cmake .. ${{ env.BUILD_FLAGS }} \
+        -DCMAKE_BUILD_TYPE=${{ env.BUILD_MODE }} \
+        -DCMAKE_OSX_ARCHITECTURES=arm64 \
+        -DMACOS_BUNDLE=ON \
+        -G Ninja
+
+    - name: "Build Cemu arm64"
+      run: |
+        cmake --build build
+
+    - name: "Move arm64 artifact"
+      run: |
+        mv bin/Cemu_release.app bin/Cemu_Metal_arm64.app
+        cp -R bin/Cemu_Metal_arm64.app bin/Cemu_Metal.app
+        mv bin/Cemu_Metal_arm64.app/Contents/MacOS/Cemu_release bin/Cemu_Metal_arm64.app/Contents/MacOS/Cemu_Metal_arm64
+        sed -i '' 's/Cemu_release/Cemu_Metal_arm64/g' bin/Cemu_Metal_arm64.app/Contents/Info.plist
+        chmod a+x bin/Cemu_Metal_arm64.app/Contents/MacOS/{Cemu_Metal_arm64,update.sh}
+
+    - name: "Create Universal binary"
+      run: |
+        rm bin/Cemu_Metal.app/Contents/MacOS/Cemu_release
+        lipo -create -output bin/Cemu_Metal.app/Contents/MacOS/Cemu_Metal \
+        bin/Cemu_Metal_x64.app/Contents/MacOS/Cemu_Metal_x64 \
+        bin/Cemu_Metal_arm64.app/Contents/MacOS/Cemu_Metal_arm64
+        rm bin/Cemu_Metal.app/Contents/Frameworks/libusb-1.0.0.dylib
+        lipo -create -output bin/Cemu_Metal.app/Contents/Frameworks/libusb-1.0.0.dylib \
+        bin/Cemu_Metal_x64.app/Contents/Frameworks/libusb-1.0.0.dylib \
+        bin/Cemu_Metal_arm64.app/Contents/Frameworks/libusb-1.0.0.dylib
+        sed -i '' 's/Cemu_release/Cemu_Metal/g' bin/Cemu_Metal.app/Contents/Info.plist
+        chmod a+x bin/Cemu_Metal.app/Contents/MacOS/{Cemu_Metal,update.sh}
+
+    - name: Prepare artifacts
+      run: |
+        mkdir bin/Cemu_app_x64
+        mv bin/Cemu_Metal_x64.app bin/Cemu_app_x64/Cemu_Metal_x64.app
+        mkdir bin/Cemu_app_arm64
+        mv bin/Cemu_Metal_arm64.app bin/Cemu_app_arm64/Cemu_Metal_arm64.app
         mkdir bin/Cemu_app
-        mv bin/Cemu_release.app bin/Cemu_app/Cemu.app
-        mv bin/Cemu_app/Cemu.app/Contents/MacOS/Cemu_release bin/Cemu_app/Cemu.app/Contents/MacOS/Cemu
-        sed -i '' 's/Cemu_release/Cemu/g' bin/Cemu_app/Cemu.app/Contents/Info.plist
-        chmod a+x bin/Cemu_app/Cemu.app/Contents/MacOS/{Cemu,update.sh}
+        mv bin/Cemu_Metal.app bin/Cemu_app/Cemu_Metal.app
+        ln -s /Applications bin/Cemu_app_x64/Applications
+        ln -s /Applications bin/Cemu_app_arm64/Applications
         ln -s /Applications bin/Cemu_app/Applications
+        hdiutil create ./bin/tmp.dmg -ov -volname "Cemu" -fs HFS+ -srcfolder "./bin/Cemu_app_x64"
+        hdiutil convert ./bin/tmp.dmg -format UDZO -o bin/Cemu_x64.dmg
+        rm bin/tmp.dmg
+        hdiutil create ./bin/tmp.dmg -ov -volname "Cemu" -fs HFS+ -srcfolder "./bin/Cemu_app_arm64"
+        hdiutil convert ./bin/tmp.dmg -format UDZO -o bin/Cemu_arm64.dmg
+        rm bin/tmp.dmg
         hdiutil create ./bin/tmp.dmg -ov -volname "Cemu" -fs HFS+ -srcfolder "./bin/Cemu_app"
-        hdiutil convert ./bin/tmp.dmg -format UDZO -o bin/Cemu.dmg
+        hdiutil convert ./bin/tmp.dmg -format UDZO -o bin/Cemu_Universal.dmg
         rm bin/tmp.dmg
               
-    - name: Upload artifact
+    - name: Upload x64 artifact
       uses: actions/upload-artifact@v4
       with:
-        name: cemu-bin-macos-${{ matrix.arch }}
-        path: ./bin/Cemu.dmg
+        name: cemu-bin-macos-x64
+        path: ./bin/Cemu_x64.dmg
+
+    - name: Upload arm64 artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: cemu-bin-macos-arm64
+        path: ./bin/Cemu_arm64.dmg
+
+    - name: Upload universal artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: cemu-bin-macos-universal
+        path: ./bin/Cemu_Universal.dmg

@@ -78,25 +78,21 @@ jobs:
           if [ -n "${{ github.event.inputs.changelog9 }}" ]; then CHANGELOG="$CHANGELOG- ${{ github.event.inputs.changelog9 }}\n"; fi
           echo -e "$CHANGELOG"
           echo "RELEASE_BODY=$CHANGELOG" >> $GITHUB_ENV
-      - uses: actions/download-artifact@v4
-        with:
-          name: cemu-bin-linux-x64
-          path: cemu-bin-linux-x64
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: cemu-appimage-x64
-          path: cemu-appimage-x64
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: cemu-bin-windows-x64
-          path: cemu-bin-windows-x64
 
       - uses: actions/download-artifact@v4
         with:
           name: cemu-bin-macos-x64
           path: cemu-bin-macos-x64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cemu-bin-macos-arm64
+          path: cemu-bin-macos-arm64
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: cemu-bin-macos-universal
+          path: cemu-bin-macos-universal
 
       - name: Initialize
         run: |
@@ -111,33 +107,14 @@ jobs:
           echo "CEMU_FOLDER_NAME=Cemu_${{ needs.calculate-version.outputs.next_version }}" >> $GITHUB_ENV
           echo "CEMU_VERSION=${{ needs.calculate-version.outputs.next_version }}" >> $GITHUB_ENV
 
-      - name: Create release from windows-bin
-        run: |
-          ls ./
-          ls ./bin/
-          cp -R ./bin ./${{ env.CEMU_FOLDER_NAME }}
-          mv cemu-bin-windows-x64/Cemu.exe ./${{ env.CEMU_FOLDER_NAME }}/Cemu.exe
-          zip -9 -r upload/cemu-${{ env.CEMU_VERSION }}-windows-x64.zip ${{ env.CEMU_FOLDER_NAME }}
-          rm -r ./${{ env.CEMU_FOLDER_NAME }}
+      - name: Create release from macos-bin-x64
+        run: cp cemu-bin-macos-x64/Cemu_x64.dmg upload/cemu-${{ env.CEMU_VERSION }}-macos-12-x64.dmg
 
-      - name: Create appimage
-        run: |
-          VERSION=${{ env.CEMU_VERSION }}
-          echo "Cemu Version is $VERSION"
-          ls cemu-appimage-x64
-          mv cemu-appimage-x64/Cemu-*-x86_64.AppImage upload/Cemu-$VERSION-x86_64.AppImage
-        
-      - name: Create release from linux-bin
-        run: |
-          ls ./
-          ls ./bin/
-          cp -R ./bin ./${{ env.CEMU_FOLDER_NAME }}
-          mv cemu-bin-linux-x64/Cemu ./${{ env.CEMU_FOLDER_NAME }}/Cemu
-          zip -9 -r upload/cemu-${{ env.CEMU_VERSION }}-ubuntu-22.04-x64.zip ${{ env.CEMU_FOLDER_NAME }}
-          rm -r ./${{ env.CEMU_FOLDER_NAME }}
-          
-      - name: Create release from macos-bin
-        run: cp cemu-bin-macos-x64/Cemu.dmg upload/cemu-${{ env.CEMU_VERSION }}-macos-12-x64.dmg
+      - name: Create release from macos-bin-arm64
+        run: cp cemu-bin-macos-arm64/Cemu_arm64.dmg upload/cemu-${{ env.CEMU_VERSION }}-macos-12-arm64.dmg
+
+      - name: Create release from macos-bin-universal
+        run: cp cemu-bin-macos-universal/Cemu_Universal.dmg upload/cemu-${{ env.CEMU_VERSION }}-macos-12-universal.dmg
 
       - name: Create release
         run: |
