@@ -9,6 +9,9 @@ on:
       next_version_minor:
         required: false
         type: string
+      next_version_patch:
+        required: false
+        type: string
 
 env:
   VCPKG_ROOT: "${{github.workspace}}/dependencies/vcpkg"
@@ -39,7 +42,10 @@ jobs:
       if: ${{ inputs.next_version_major != '' }}
       run: |
         echo "[INFO] Version ${{ inputs.next_version_major }}.${{ inputs.next_version_minor }}"
-        echo "BUILD_FLAGS=${{ env.BUILD_FLAGS }} -DEMULATOR_VERSION_MAJOR=${{ inputs.next_version_major }} -DEMULATOR_VERSION_MINOR=${{ inputs.next_version_minor }}" >> $GITHUB_ENV
+        echo "BUILD_FLAGS=${{ env.BUILD_FLAGS }} \
+        -DEMULATOR_VERSION_MAJOR=${{ inputs.next_version_major }} \
+        -DEMULATOR_VERSION_MINOR=${{ inputs.next_version_minor }} \
+        -DEMULATOR_VERSION_PATCH=${{ inputs.next_version_patch }}" >> $GITHUB_ENV
         
     - name: "Install system dependencies"
       run: |
@@ -96,6 +102,7 @@ jobs:
         mv bin/Cemu_Metal_x64.app/Contents/MacOS/Cemu_release bin/Cemu_Metal_x64.app/Contents/MacOS/Cemu_Metal_x64
         sed -i '' 's/Cemu_release/Cemu_Metal_x64/g' bin/Cemu_Metal_x64.app/Contents/Info.plist
         chmod a+x bin/Cemu_Metal_x64.app/Contents/MacOS/{Cemu_Metal_x64,update.sh}
+        codesign --force --deep --sign - bin/Cemu_Metal_x64.app
 
     - name: "cmake arm64"
       run: |
@@ -119,6 +126,7 @@ jobs:
         mv bin/Cemu_Metal_arm64.app/Contents/MacOS/Cemu_release bin/Cemu_Metal_arm64.app/Contents/MacOS/Cemu_Metal_arm64
         sed -i '' 's/Cemu_release/Cemu_Metal_arm64/g' bin/Cemu_Metal_arm64.app/Contents/Info.plist
         chmod a+x bin/Cemu_Metal_arm64.app/Contents/MacOS/{Cemu_Metal_arm64,update.sh}
+        codesign --force --deep --sign - bin/Cemu_Metal_arm64.app
 
     - name: "Create Universal binary"
       run: |
@@ -132,6 +140,7 @@ jobs:
         bin/Cemu_Metal_arm64.app/Contents/Frameworks/libusb-1.0.0.dylib
         sed -i '' 's/Cemu_release/Cemu_Metal/g' bin/Cemu_Metal.app/Contents/Info.plist
         chmod a+x bin/Cemu_Metal.app/Contents/MacOS/{Cemu_Metal,update.sh}
+        codesign --force --deep --sign - bin/Cemu_Metal.app
 
     - name: Prepare artifacts
       run: |
