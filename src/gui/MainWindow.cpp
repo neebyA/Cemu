@@ -294,6 +294,11 @@ private:
 MainWindow::MainWindow()
 	: wxFrame(nullptr, -1, GetInitialWindowTitle(), wxDefaultPosition, wxSize(1280, 720), wxMINIMIZE_BOX | wxMAXIMIZE_BOX | wxSYSTEM_MENU | wxCAPTION | wxCLOSE_BOX | wxCLIP_CHILDREN | wxRESIZE_BORDER)
 {
+#ifdef __WXMAC__
+	wxApp::s_macAboutMenuItemId = (long)MAINFRAME_MENU_ID_HELP_ABOUT;
+	wxApp::s_macPreferencesMenuItemId = MAINFRAME_MENU_ID_OPTIONS_GENERAL2;
+	//wxApp::s_macExitMenuItemId = MAINFRAME_MENU_ID_FILE_EXIT;
+#endif
 	gui_initHandleContextFromWxWidgetsWindow(g_window_info.window_main, this);
 	g_mainFrame = this;
 	CafeSystem::SetImplementation(this);
@@ -2175,7 +2180,23 @@ void MainWindow::RecreateMenu()
 	m_padViewMenuItem = optionsMenu->AppendCheckItem(MAINFRAME_MENU_ID_OPTIONS_SECOND_WINDOW_PADVIEW, _("&Separate GamePad view"), wxEmptyString);
 	m_padViewMenuItem->Check(GetConfig().pad_open);
 	optionsMenu->AppendSeparator();
+	#ifdef __WXMAC__
+	// wxMenu* macSettingsMenu = new wxMenu();
+	// macSettingsMenu->Append(MAINFRAME_MENU_ID_OPTIONS_GENERAL2, _("&General settings" "\tCtrl-,"));
+	// macSettingsMenu->Append(MAINFRAME_MENU_ID_OPTIONS_INPUT, _("&Input settings"));
+	// wxMenuItem* macSettingsItem = wxMenuItem::New(
+	// 	optionsMenu,
+	// 	MAINFRAME_MENU_ID_OPTIONS_GENERAL,
+	// 	_("&Settings..."),
+	// 	wxEmptyString,
+	// 	wxITEM_NORMAL,
+	// 	macSettingsMenu
+	// );
+	// optionsMenu->Append(macSettingsItem);
+	optionsMenu->Append(MAINFRAME_MENU_ID_OPTIONS_GENERAL2, _("&Settings..." "\tCtrl-,"));
+	#else
 	optionsMenu->Append(MAINFRAME_MENU_ID_OPTIONS_GENERAL2, _("&General settings"));
+	#endif
 	optionsMenu->Append(MAINFRAME_MENU_ID_OPTIONS_INPUT, _("&Input settings"));
 
 	optionsMenu->AppendSeparator();
