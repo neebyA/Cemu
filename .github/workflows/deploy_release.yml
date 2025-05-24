@@ -98,6 +98,11 @@ jobs:
           name: cemu-bin-macos-x64
           path: cemu-bin-macos-x64
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: cemu-bin-macos-arm64
+          path: cemu-bin-macos-arm64
+
       - name: Initialize
         run: |
           mkdir upload
@@ -137,7 +142,9 @@ jobs:
           rm -r ./${{ env.CEMU_FOLDER_NAME }}
           
       - name: Create release from macos-bin
-        run: cp cemu-bin-macos-x64/Cemu.dmg upload/cemu-${{ env.CEMU_VERSION }}-macos-12-x64.dmg
+        run: |
+          cp cemu-bin-macos-x64/Cemu.dmg upload/cemu-${{ env.CEMU_VERSION }}-macos-12-x64.dmg
+          cp cemu-bin-macos-arm64/Cemu.dmg upload/cemu-${{ env.CEMU_VERSION }}-macos-12-arm64.dmg
 
       - name: Create release
         run: |
